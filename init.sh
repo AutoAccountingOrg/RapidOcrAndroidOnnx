@@ -14,19 +14,18 @@ MODEL_DIR="${MODEL_DIR:-}"
 MODEL_ARCHIVE="${MODEL_ARCHIVE:-}"
 MODEL_INDEX_URL="${MODEL_INDEX_URL:-https://raw.githubusercontent.com/RapidAI/RapidOCR/main/python/rapidocr/default_models.yaml}"
 
-DET_MODEL="${DET_MODEL:-ch_PP-OCRv5_mobile_det.onnx}"
-REC_MODEL="${REC_MODEL:-ch_PP-OCRv5_rec_mobile_infer.onnx}"
-CLS_MODEL="${CLS_MODEL:-ch_ppocr_mobile_v2.0_cls_infer.onnx}"
-DET_SERVER_MODEL="${DET_SERVER_MODEL:-ch_PP-OCRv5_server_det.onnx}"
-REC_SERVER_MODEL="${REC_SERVER_MODEL:-ch_PP-OCRv5_rec_server_infer.onnx}"
+DET_SOURCE_NAME="${DET_SOURCE_NAME:-${DET_MODEL:-ch_PP-OCRv5_mobile_det.onnx}}"
+REC_SOURCE_NAME="${REC_SOURCE_NAME:-${REC_MODEL:-ch_PP-OCRv5_rec_mobile_infer.onnx}}"
+CLS_SOURCE_NAME="${CLS_SOURCE_NAME:-${CLS_MODEL:-ch_ppocr_mobile_v2.0_cls_infer.onnx}}"
+DET_ASSET_NAME="${DET_ASSET_NAME:-det.onnx}"
+REC_ASSET_NAME="${REC_ASSET_NAME:-rec.onnx}"
+CLS_ASSET_NAME="${CLS_ASSET_NAME:-cls.onnx}"
 KEYS_FILE="ppocr_keys_v1.txt"
 
 CLS_URL="${CLS_URL:-}"
 DET_URL="${DET_URL:-}"
-DET_SERVER_URL="${DET_SERVER_URL:-}"
 REC_URL="${REC_URL:-}"
-REC_SERVER_URL="${REC_SERVER_URL:-}"
-KEYS_URL="${KEYS_URL:-}"
+KEYS_URL="${KEYS_URL:-https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.6.0/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer/ppocr_keys_v1.txt}"
 
 usage() {
   cat <<'EOF'
@@ -39,15 +38,15 @@ Usage: ./init.sh [--clean]
   MODEL_ARCHIVE    本地模型压缩包路径（可选）
   MODEL_DIR        本地模型目录（可选，显式指定才使用）
   MODEL_INDEX_URL  模型索引 YAML 地址（默认：RapidOCR default_models.yaml）
-  DET_MODEL        det 模型文件名（默认推荐：ch_PP-OCRv5_mobile_det.onnx）
-  DET_SERVER_MODEL det server 模型文件名
-  REC_MODEL        rec 模型文件名（默认推荐：ch_PP-OCRv5_rec_mobile_infer.onnx）
-  REC_SERVER_MODEL rec server 模型文件名
+  DET_SOURCE_NAME  det 源模型文件名（默认：ch_PP-OCRv5_mobile_det.onnx）
+  REC_SOURCE_NAME  rec 源模型文件名（默认：ch_PP-OCRv5_rec_mobile_infer.onnx）
+  CLS_SOURCE_NAME  cls 源模型文件名（默认：ch_ppocr_mobile_v2.0_cls_infer.onnx）
+  DET_ASSET_NAME   det 目标文件名（默认：det.onnx）
+  REC_ASSET_NAME   rec 目标文件名（默认：rec.onnx）
+  CLS_ASSET_NAME   cls 目标文件名（默认：cls.onnx）
   CLS_URL          cls 模型下载直链（可选）
   DET_URL          det 模型下载直链（可选）
-  DET_SERVER_URL   det server 模型下载直链（可选）
   REC_URL          rec 模型下载直链（可选）
-  REC_SERVER_URL   rec server 模型下载直链（可选）
   KEYS_URL         keys 文件下载直链（可选）
 
 示例：
@@ -55,7 +54,7 @@ Usage: ./init.sh [--clean]
   MODEL_DIR=/path/to/models ./init.sh
   MODEL_ARCHIVE=/path/to/models.7z ./init.sh
   MODEL_INDEX_URL=... ./init.sh
-  DET_MODEL=... REC_MODEL=... DET_URL=... REC_URL=... KEYS_URL=... ./init.sh
+  DET_SOURCE_NAME=... REC_SOURCE_NAME=... DET_URL=... REC_URL=... KEYS_URL=... ./init.sh
 EOF
 }
 
@@ -234,38 +233,57 @@ download_required_models() {
   local index_yaml="$1"
   local out_dir="$2"
 
-  download_model "${index_yaml}" "${CLS_MODEL}" "${CLS_URL}" "${out_dir}"
-  download_model "${index_yaml}" "${DET_MODEL}" "${DET_URL}" "${out_dir}"
-  download_model "${index_yaml}" "${DET_SERVER_MODEL}" "${DET_SERVER_URL}" "${out_dir}"
-  download_model "${index_yaml}" "${REC_MODEL}" "${REC_URL}" "${out_dir}"
-  download_model "${index_yaml}" "${REC_SERVER_MODEL}" "${REC_SERVER_URL}" "${out_dir}"
-  download_model "${index_yaml}" "${KEYS_FILE}" "${KEYS_URL}" "${out_dir}"
+  download_model_as "${index_yaml}" "${CLS_SOURCE_NAME}" "${CLS_URL}" "${CLS_ASSET_NAME}" "${out_dir}"
+  download_model_as "${index_yaml}" "${DET_SOURCE_NAME}" "${DET_URL}" "${DET_ASSET_NAME}" "${out_dir}"
+  download_model_as "${index_yaml}" "${REC_SOURCE_NAME}" "${REC_URL}" "${REC_ASSET_NAME}" "${out_dir}"
+  download_model_as "${index_yaml}" "${KEYS_FILE}" "${KEYS_URL}" "${KEYS_FILE}" "${out_dir}"
 }
 
-download_model() {
+download_model_as() {
   local index_yaml="$1"
-  local filename="$2"
+  local source_name="$2"
   local direct_url="$3"
-  local out_dir="$4"
+  local target_name="$4"
+  local out_dir="$5"
 
-  if [ -f "${out_dir}/${filename}" ]; then
-    log "模型已存在，跳过下载：${filename}"
+  if [ -f "${out_dir}/${target_name}" ]; then
+    log "模型已存在，跳过下载：${target_name}"
     return 0
   fi
 
+  if [ -f "${out_dir}/${source_name}" ] && [ "${source_name}" != "${target_name}" ]; then
+    log "重命名模型：${source_name} -> ${target_name}"
+    mv "${out_dir}/${source_name}" "${out_dir}/${target_name}"
+    return 0
+  fi
+
+  local url=""
   if [ -n "${direct_url}" ]; then
-    log "下载模型：${filename}"
-    download_file "${direct_url}" "${out_dir}/${filename}"
+    url="${direct_url}"
+  else
+    url="$(resolve_model_url_from_index "${index_yaml}" "${source_name}")"
+  fi
+
+  if [ -z "${url}" ]; then
+    log "模型索引未找到：${source_name}"
     return 0
   fi
 
-  download_model_from_index "${index_yaml}" "${filename}" "${out_dir}"
+  if [ "${source_name}" = "${target_name}" ]; then
+    log "下载模型：${target_name}"
+    download_file "${url}" "${out_dir}/${target_name}"
+    return 0
+  fi
+
+  local tmp_file="${out_dir}/.${target_name}.download"
+  log "下载模型：${source_name} -> ${target_name}"
+  download_file "${url}" "${tmp_file}"
+  mv "${tmp_file}" "${out_dir}/${target_name}"
 }
 
-download_model_from_index() {
+resolve_model_url_from_index() {
   local yaml="$1"
   local filename="$2"
-  local out_dir="$3"
 
   local url
   url="$(
@@ -275,42 +293,26 @@ download_model_from_index() {
     ' "${yaml}"
   )"
 
-  if [ -z "${url}" ]; then
-    log "模型索引未找到：${filename}"
-    return 0
-  fi
-
-  log "下载模型：${filename}"
-  download_file "${url}" "${out_dir}/${filename}"
+  printf "%s" "${url}"
 }
 
 verify_models() {
   local assets="${ASSETS_DIR}"
   local missing=0
 
-  if [ ! -f "${assets}/${CLS_MODEL}" ]; then
-    log "缺少 cls 模型：${CLS_MODEL}"
+  if [ ! -f "${assets}/${CLS_ASSET_NAME}" ]; then
+    log "缺少 cls 模型：${CLS_ASSET_NAME}"
     missing=1
   fi
 
-  if [ ! -f "${assets}/${DET_MODEL}" ]; then
-    if [ -f "${assets}/ch_ppocr_server_v2.0_det_infer.onnx" ]; then
-      DET_MODEL="ch_ppocr_server_v2.0_det_infer.onnx"
-      log "det 模型切换为：${DET_MODEL}"
-    else
-      log "缺少 det 模型：${DET_MODEL}"
-      missing=1
-    fi
+  if [ ! -f "${assets}/${DET_ASSET_NAME}" ]; then
+    log "缺少 det 模型：${DET_ASSET_NAME}"
+    missing=1
   fi
 
-  if [ ! -f "${assets}/${REC_MODEL}" ]; then
-    if [ -f "${assets}/ch_ppocr_server_v2.0_rec_infer.onnx" ]; then
-      REC_MODEL="ch_ppocr_server_v2.0_rec_infer.onnx"
-      log "rec 模型切换为：${REC_MODEL}"
-    else
-      log "缺少 rec 模型：${REC_MODEL}"
-      missing=1
-    fi
+  if [ ! -f "${assets}/${REC_ASSET_NAME}" ]; then
+    log "缺少 rec 模型：${REC_ASSET_NAME}"
+    missing=1
   fi
 
   if [ ! -f "${assets}/${KEYS_FILE}" ]; then
