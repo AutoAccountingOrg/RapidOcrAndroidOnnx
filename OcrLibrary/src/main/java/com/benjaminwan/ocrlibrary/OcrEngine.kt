@@ -7,7 +7,10 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class OcrEngine(context: Context) : AutoCloseable {
     companion object {
-        const val numThread: Int = 4
+        val numThread: Int = run {
+            val cores = Runtime.getRuntime().availableProcessors()
+            if (cores > 0) cores else 1
+        }
     }
 
     private val closed = AtomicBoolean(false)
