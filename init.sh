@@ -5,56 +5,33 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASSETS_DIR="${ROOT_DIR}/OcrLibrary/src/main/assets"
 SDK_NATIVE_DIR="${ROOT_DIR}/OcrLibrary/src/sdk/native"
 ORT_DIR="${ROOT_DIR}/OcrLibrary/src/main/onnxruntime-shared"
+JNILIBS_DIR="${ROOT_DIR}/OcrLibrary/src/main/jniLibs"
 TMP_DIR="${ROOT_DIR}/.tmp/init"
 
-OPENCV_URL="${OPENCV_URL:-https://gitee.com/benjaminwan/ocr-lite-android-ncnn/attach_files/843219/download/opencv-mobile-3.4.15-android.7z}"
-ORT_URL="${ORT_URL:-https://github.com/RapidAI/OnnxruntimeBuilder/releases/download/1.14.0/onnxruntime-1.14.0-android-shared.7z}"
-MODEL_URL="${MODEL_URL:-}"
-MODEL_DIR="${MODEL_DIR:-}"
-MODEL_ARCHIVE="${MODEL_ARCHIVE:-}"
-MODEL_INDEX_URL="${MODEL_INDEX_URL:-https://raw.githubusercontent.com/RapidAI/RapidOCR/main/python/rapidocr/default_models.yaml}"
+OPENCV_URL="https://gitee.com/benjaminwan/ocr-lite-android-ncnn/attach_files/843219/download/opencv-mobile-3.4.15-android.7z"
+ORT_VERSION="1.23.2"
+ORT_URL="https://github.com/RapidAI/OnnxruntimeBuilder/releases/download/${ORT_VERSION}/onnxruntime-v${ORT_VERSION}-android-shared.7z"
+MODEL_URL=""
+MODEL_DIR=""
+MODEL_ARCHIVE=""
+MODEL_INDEX_URL="https://raw.githubusercontent.com/RapidAI/RapidOCR/main/python/rapidocr/default_models.yaml"
 
-DET_SOURCE_NAME="${DET_SOURCE_NAME:-${DET_MODEL:-ch_PP-OCRv5_mobile_det.onnx}}"
-REC_SOURCE_NAME="${REC_SOURCE_NAME:-${REC_MODEL:-ch_PP-OCRv5_rec_mobile_infer.onnx}}"
-CLS_SOURCE_NAME="${CLS_SOURCE_NAME:-${CLS_MODEL:-ch_ppocr_mobile_v2.0_cls_infer.onnx}}"
-DET_ASSET_NAME="${DET_ASSET_NAME:-det.onnx}"
-REC_ASSET_NAME="${REC_ASSET_NAME:-rec.onnx}"
-CLS_ASSET_NAME="${CLS_ASSET_NAME:-cls.onnx}"
-KEYS_FILE="ppocr_keys_v1.txt"
+DET_SOURCE_NAME="ch_PP-OCRv5_mobile_det.onnx"
+REC_SOURCE_NAME="ch_PP-OCRv5_rec_mobile_infer.onnx"
+CLS_SOURCE_NAME="ch_ppocr_mobile_v2.0_cls_infer.onnx"
+DET_ASSET_NAME="det.onnx"
+REC_ASSET_NAME="rec.onnx"
+CLS_ASSET_NAME="cls.onnx"
+KEYS_FILE="ppocrv5_dict.txt"
 
-CLS_URL="${CLS_URL:-}"
-DET_URL="${DET_URL:-}"
-REC_URL="${REC_URL:-}"
-KEYS_URL="${KEYS_URL:-https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.6.0/paddle/PP-OCRv4/rec/ch_PP-OCRv4_rec_infer/ppocr_keys_v1.txt}"
+CLS_URL=""
+DET_URL=""
+REC_URL=""
+KEYS_URL="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.6.0/paddle/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer/ppocrv5_dict.txt"
 
 usage() {
   cat <<'EOF'
-Usage: ./init.sh [--clean]
-
-环境变量：
-  OPENCV_URL       opencv-mobile-3.4.15-android.7z 下载地址
-  ORT_URL          onnxruntime-1.14.0-android-shared.7z 下载地址
-  MODEL_URL        模型压缩包下载地址（可选）
-  MODEL_ARCHIVE    本地模型压缩包路径（可选）
-  MODEL_DIR        本地模型目录（可选，显式指定才使用）
-  MODEL_INDEX_URL  模型索引 YAML 地址（默认：RapidOCR default_models.yaml）
-  DET_SOURCE_NAME  det 源模型文件名（默认：ch_PP-OCRv5_mobile_det.onnx）
-  REC_SOURCE_NAME  rec 源模型文件名（默认：ch_PP-OCRv5_rec_mobile_infer.onnx）
-  CLS_SOURCE_NAME  cls 源模型文件名（默认：ch_ppocr_mobile_v2.0_cls_infer.onnx）
-  DET_ASSET_NAME   det 目标文件名（默认：det.onnx）
-  REC_ASSET_NAME   rec 目标文件名（默认：rec.onnx）
-  CLS_ASSET_NAME   cls 目标文件名（默认：cls.onnx）
-  CLS_URL          cls 模型下载直链（可选）
-  DET_URL          det 模型下载直链（可选）
-  REC_URL          rec 模型下载直链（可选）
-  KEYS_URL         keys 文件下载直链（可选）
-
-示例：
-  MODEL_URL=... ./init.sh
-  MODEL_DIR=/path/to/models ./init.sh
-  MODEL_ARCHIVE=/path/to/models.7z ./init.sh
-  MODEL_INDEX_URL=... ./init.sh
-  DET_SOURCE_NAME=... REC_SOURCE_NAME=... DET_URL=... REC_URL=... KEYS_URL=... ./init.sh
+Usage: ./init.sh
 EOF
 }
 
@@ -75,12 +52,12 @@ extract_7z() {
   local archive="$1"
   local out_dir="$2"
 
-  if need_cmd 7z; then
-    7z x -y "-o${out_dir}" "${archive}" >/dev/null
-    return 0
-  fi
   if need_cmd 7zz; then
     7zz x -y "-o${out_dir}" "${archive}" >/dev/null
+    return 0
+  fi
+  if need_cmd 7z; then
+    7z x -y "-o${out_dir}" "${archive}" >/dev/null
     return 0
   fi
   if need_cmd unar; then
@@ -109,6 +86,10 @@ download_file() {
 clean_cache() {
   log "清理缓存目录"
   rm -rf \
+    "${ASSETS_DIR}" \
+    "${SDK_NATIVE_DIR}" \
+    "${ORT_DIR}" \
+    "${TMP_DIR}" \
     "${ROOT_DIR}/.idea" \
     "${ROOT_DIR}/build" \
     "${ROOT_DIR}/app/build" \
@@ -159,7 +140,7 @@ setup_opencv() {
 }
 
 setup_onnxruntime() {
-  local archive="${TMP_DIR}/onnxruntime-1.14.0-android-shared.7z"
+  local archive="${TMP_DIR}/onnxruntime-${ORT_VERSION}-android-shared.7z"
   local extract_dir="${TMP_DIR}/onnxruntime"
   rm -rf "${extract_dir}"
   mkdir -p "${extract_dir}"
@@ -187,6 +168,29 @@ setup_onnxruntime() {
   rm -rf "${ORT_DIR}"
   mkdir -p "${ORT_DIR}"
   cp -a "${src}/." "${ORT_DIR}/"
+}
+
+sync_onnxruntime_jni_libs() {
+  local abis=("armeabi-v7a" "arm64-v8a" "x86" "x86_64")
+  local copied=0
+
+  for abi in "${abis[@]}"; do
+    local src="${ORT_DIR}/${abi}/lib/libonnxruntime.so"
+    local dst_dir="${JNILIBS_DIR}/${abi}"
+    if [ ! -f "${src}" ]; then
+      log "缺少 onnxruntime so: ${src}"
+      continue
+    fi
+    mkdir -p "${dst_dir}"
+    cp -f "${src}" "${dst_dir}/"
+    copied=$((copied + 1))
+  done
+
+  if [ "${copied}" -eq 0 ]; then
+    fail "未找到任何可用的 libonnxruntime.so，无法同步到 jniLibs"
+  fi
+
+  log "已同步 onnxruntime so 到 ${JNILIBS_DIR}"
 }
 
 collect_models() {
@@ -330,15 +334,17 @@ main() {
     usage
     exit 0
   fi
-  if [ "${1:-}" = "--clean" ]; then
-    clean_cache
-  fi
+  clean_cache
 
   ensure_dirs
   setup_opencv
   setup_onnxruntime
+  sync_onnxruntime_jni_libs
   collect_models
   verify_models
+
+  log "清理临时目录"
+  rm -rf "${TMP_DIR}"
 
   log "初始化完成"
   log "Release 编译命令：./gradlew assembleRelease"

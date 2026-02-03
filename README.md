@@ -88,6 +88,10 @@ onnxruntime框架[https://github.com/microsoft/onnxruntime](https://github.com/m
 * 相册识别和相机识别增加停止按钮
 * 添加java demo
 
+#### 2026-02-03 update v1.3.1
+
+* onnxruntime 1.23.2
+
 ### [编译说明](./BUILD.md)
 
 ### [使用说明](./INSTRUCTIONS.md)

@@ -7,17 +7,15 @@
 
     ```text
     Project_RapidOcrAndroidOnnx-1.3.0/OcrLibrary/src/main/assets
-        ├── ch_ppocr_mobile_v2.0_cls_infer.onnx
-        ├── ch_PP-OCRv2_det_infer.onnx det二选一，推荐
-        ├── ch_ppocr_server_v2.0_det_infer.onnx det二选一
-        ├── ch_ppocr_mobile_v2.0_rec_infer.onnx rec二选一，推荐
-        ├── ch_ppocr_server_v2.0_rec_infer.onnx rec二选一
+        ├── cls.onnx
+        ├── det.onnx
+        ├── rec.onnx
         └── ppocr_keys_v1.txt
     ```
 
-    - det模型用于分割文字块，有两种模型(server和mobile)，其中server体积大且较慢但效果好，mobile体积小且较快但效果差点。
-   - cls模型用于检测文字方向，只有一种模型
-   - rec模型用于文字识别，有两种模型(server和mobile)，其中server体积大且较慢但效果好，mobile体积小且较快但效果差点。
+    - det模型用于分割文字块，命名为 det.onnx
+   - cls模型用于检测文字方向，命名为 cls.onnx
+   - rec模型用于文字识别，命名为 rec.onnx
 
 5. 下载opencv-mobile-3.4.15-android.7z，[下载地址](https://gitee.com/benjaminwan/ocr-lite-android-ncnn/attach_files/843219/download/opencv-mobile-3.4.15-android.7z)。解压后目录结构为
 
@@ -28,7 +26,7 @@
             └── staticlibs
     ```
 
-6. onnxruntime-1.14.0-android-shared.7z，[下载地址](https://github.com/RapidAI/OnnxruntimeBuilder/releases/tag/1.14.0)。 解压后目录结构为
+6. onnxruntime-v1.23.2-android-shared.7z，[下载地址](https://github.com/RapidAI/OnnxruntimeBuilder/releases/tag/1.23.2)。 解压后目录结构为
 
     ```text
     RapidOcrAndroidOnnx/OcrLibrary/src/main/onnxruntime-shared
