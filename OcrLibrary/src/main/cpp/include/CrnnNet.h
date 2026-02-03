@@ -2,7 +2,7 @@
 #define __OCR_CRNNNET_H__
 
 #include "OcrStruct.h"
-#include "onnxruntime/core/session/onnxruntime_cxx_api.h"
+#include "onnxruntime_cxx_api.h"
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <android/asset_manager.h>
@@ -22,7 +22,7 @@ public:
     std::vector<TextLine> getTextLines(std::vector<cv::Mat> &partImg);
 
 private:
-    Ort::Session *session;
+    Ort::Session *session = nullptr;
     Ort::Env ortEnv = Ort::Env(ORT_LOGGING_LEVEL_ERROR, "CrnnNet");
     Ort::SessionOptions sessionOptions = Ort::SessionOptions();
     int numThread = 0;

@@ -5,3 +5,4 @@
 /src/sdk
 /src/main/onnx
 /src/main/onnxruntime-shared
+/src/main/jniLibs/
