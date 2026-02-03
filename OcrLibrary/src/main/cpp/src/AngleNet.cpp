@@ -5,7 +5,10 @@
 AngleNet::AngleNet() {}
 
 AngleNet::~AngleNet() {
-    delete session;
+    if (session) {
+        delete session;
+        session = nullptr;
+    }
     inputNamesPtr.clear();
     outputNamesPtr.clear();
 }
@@ -34,6 +37,14 @@ void AngleNet::setNumThread(int numOfThread) {
 void AngleNet::initModel(AAssetManager *mgr, const std::string &name) {
     int dbModelDataLength = 0;
     void *dbModelData = getModelDataFromAssets(mgr, name.c_str(), dbModelDataLength);
+    if (!dbModelData || dbModelDataLength <= 0) {
+        LOGE("AngleNet model data is empty");
+        return;
+    }
+    if (session) {
+        delete session;
+        session = nullptr;
+    }
     session = new Ort::Session(ortEnv, dbModelData, dbModelDataLength,
                                sessionOptions);
     free(dbModelData);

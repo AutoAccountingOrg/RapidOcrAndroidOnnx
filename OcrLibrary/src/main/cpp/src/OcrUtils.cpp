@@ -409,6 +409,19 @@ std::string jstringTostring(JNIEnv *env, jstring input) {
         str[alen] = 0;
     }
     env->ReleaseByteArrayElements(barr, ba, 0);
+    if (barr) {
+        env->DeleteLocalRef(barr);
+    }
+    if (strencode) {
+        env->DeleteLocalRef(strencode);
+    }
+    if (clsstring) {
+        env->DeleteLocalRef(clsstring);
+    }
+    if (!str) {
+        return std::string();
+    }
     std::string ret = str;
+    free(str);
     return ret;
 }

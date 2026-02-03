@@ -3,20 +3,23 @@ package com.benjaminwan.ocrlibrary
 import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.Bitmap
+import java.util.concurrent.atomic.AtomicBoolean
 
-class OcrEngine(context: Context) {
+class OcrEngine(context: Context) : AutoCloseable {
     companion object {
         const val numThread: Int = 4
     }
+
+    private val closed = AtomicBoolean(false)
 
     init {
         System.loadLibrary("RapidOcr")
         val ret = init(
             context.assets, numThread,
-            "ch_PP-OCRv3_det_infer.onnx",
-            "ch_ppocr_mobile_v2.0_cls_infer.onnx",
-            "ch_PP-OCRv3_rec_infer.onnx",
-            "ppocr_keys_v1.txt"
+            "det.onnx",
+            "cls.onnx",
+            "rec.onnx",
+            "ppocrv5_dict.txt"
         )
         if (!ret) throw IllegalArgumentException()
     }
@@ -41,6 +44,8 @@ class OcrEngine(context: Context) {
         clsName: String, recName: String, keysName: String
     ): Boolean
 
+    external fun release(): Int
+
     external fun detect(
         input: Bitmap, output: Bitmap, padding: Int, maxSideLen: Int,
         boxScoreThresh: Float, boxThresh: Float,
@@ -48,5 +53,16 @@ class OcrEngine(context: Context) {
     ): OcrResult
 
     external fun benchmark(input: Bitmap, loop: Int): Double
+
+    override fun close() {
+        if (closed.compareAndSet(false, true)) {
+            release()
+        }
+    }
+
+    fun closeAndRelease(): Int {
+        close()
+        return 0
+    }
 
 }

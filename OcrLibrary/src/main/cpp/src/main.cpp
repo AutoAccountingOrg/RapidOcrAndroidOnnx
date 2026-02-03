@@ -3,17 +3,7 @@
 #include "OcrLite.h"
 #include "OcrUtils.h"
 
-static OcrLite *ocrLite;
-
-JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-    ocrLite = new OcrLite();
-    return JNI_VERSION_1_4;
-}
-
-JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *reserved) {
-    LOGI("Goodbye OcrLite!");
-    delete ocrLite;
-}
+static OcrLite *ocrLite = nullptr;
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_benjaminwan_ocrlibrary_OcrEngine_init(JNIEnv *env, jobject thiz, jobject assetManager,
@@ -23,10 +13,14 @@ Java_com_benjaminwan_ocrlibrary_OcrEngine_init(JNIEnv *env, jobject thiz, jobjec
     std::string modelClsName = jstringTostring(env, clsName);
     std::string modelRecName = jstringTostring(env, recName);
     std::string modelKeysName = jstringTostring(env, keysName);
+    if (ocrLite == nullptr) {
+        ocrLite = new OcrLite();
+    }
     ocrLite->init(env, assetManager, numThread, modelDetName, modelClsName, modelRecName, modelKeysName);
     //ocrLite->initLogger(false);
     return JNI_TRUE;
 }
+
 
 cv::Mat makePadding(cv::Mat &src, const int padding) {
     if (padding <= 0) return src;
@@ -35,6 +29,16 @@ cv::Mat makePadding(cv::Mat &src, const int padding) {
     cv::copyMakeBorder(src, paddingSrc, padding, padding, padding, padding, cv::BORDER_ISOLATED,
                        paddingScalar);
     return paddingSrc;
+}
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_benjaminwan_ocrlibrary_OcrEngine_release(JNIEnv *env, jobject thiz){
+    if (ocrLite != nullptr) {
+        delete ocrLite;
+        ocrLite = nullptr;
+    }
+    return 0;
 }
 
 extern "C"

@@ -5,7 +5,10 @@
 CrnnNet::CrnnNet() {}
 
 CrnnNet::~CrnnNet() {
-    delete session;
+    if (session) {
+        delete session;
+        session = nullptr;
+    }
     inputNamesPtr.clear();
     outputNamesPtr.clear();
 }
@@ -60,12 +63,20 @@ char *readKeysFromAssets(AAssetManager *mgr, const std::string &keysName) {
 void CrnnNet::initModel(AAssetManager *mgr, const std::string &name, const std::string &keysName) {
     int dbModelDataLength = 0;
     void *dbModelData = getModelDataFromAssets(mgr, name.c_str(), dbModelDataLength);
+    if (!dbModelData || dbModelDataLength <= 0) {
+        LOGE("CrnnNet model data is empty");
+        return;
+    }
+    if (session) {
+        delete session;
+        session = nullptr;
+    }
     session = new Ort::Session(ortEnv, dbModelData, dbModelDataLength,
                                sessionOptions);
     free(dbModelData);
     inputNamesPtr = getInputNames(session);
     outputNamesPtr = getOutputNames(session);
-
+    keys.clear();
     //load keys
     char *buffer = readKeysFromAssets(mgr, keysName);
     if (buffer != NULL) {
