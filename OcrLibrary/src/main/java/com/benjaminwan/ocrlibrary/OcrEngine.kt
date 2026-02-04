@@ -7,10 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 class OcrEngine(context: Context) : AutoCloseable {
     companion object {
-        val numThread: Int = run {
-            val cores = Runtime.getRuntime().availableProcessors()
-            if (cores > 0) cores else 1
-        }
+        val numThread: Int = 4
     }
 
     private val closed = AtomicBoolean(false)
@@ -19,10 +16,10 @@ class OcrEngine(context: Context) : AutoCloseable {
         System.loadLibrary("RapidOcr")
         val ret = init(
             context.assets, numThread,
-            "det.onnx",
-            "cls.onnx",
-            "rec.onnx",
-            "ppocrv5_dict.txt"
+               "ch_PP-OCRv3_det_infer.onnx",
+            "ch_ppocr_mobile_v2.0_cls_infer.onnx",
+            "ch_PP-OCRv3_rec_infer.onnx",
+            "ppocr_keys_v1.txt"
         )
         if (!ret) throw IllegalArgumentException()
     }
