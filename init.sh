@@ -2,38 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ASSETS_DIR="${ROOT_DIR}/OcrLibrary/src/main/assets"
 SDK_NATIVE_DIR="${ROOT_DIR}/OcrLibrary/src/sdk/native"
 ORT_DIR="${ROOT_DIR}/OcrLibrary/src/main/onnxruntime-shared"
 JNILIBS_DIR="${ROOT_DIR}/OcrLibrary/src/main/jniLibs"
 TMP_DIR="${ROOT_DIR}/.tmp/init"
 
 OPENCV_URL="https://gitee.com/benjaminwan/ocr-lite-android-ncnn/attach_files/843219/download/opencv-mobile-3.4.15-android.7z"
-ORT_VERSION="1.23.2"
-ORT_URL="https://github.com/RapidAI/OnnxruntimeBuilder/releases/download/${ORT_VERSION}/onnxruntime-v${ORT_VERSION}-android-shared.7z"
-MODEL_URL=""
-MODEL_DIR=""
-MODEL_ARCHIVE=""
-MODEL_INDEX_URL="https://raw.githubusercontent.com/RapidAI/RapidOCR/main/python/rapidocr/default_models.yaml"
-
-DET_SOURCE_NAME="ch_PP-OCRv5_mobile_det.onnx"
-REC_SOURCE_NAME="ch_PP-OCRv5_rec_mobile_infer.onnx"
-CLS_SOURCE_NAME="ch_ppocr_mobile_v2.0_cls_infer.onnx"
-DET_ASSET_NAME="det.onnx"
-REC_ASSET_NAME="rec.onnx"
-CLS_ASSET_NAME="cls.onnx"
-KEYS_FILE="ppocrv5_dict.txt"
-
-CLS_URL=""
-DET_URL=""
-REC_URL=""
-KEYS_URL="https://www.modelscope.cn/models/RapidAI/RapidOCR/resolve/v3.6.0/paddle/PP-OCRv5/rec/ch_PP-OCRv5_rec_mobile_infer/ppocrv5_dict.txt"
-
-usage() {
-  cat <<'EOF'
-Usage: ./init.sh
-EOF
-}
+ORT_URL="https://github.com/RapidAI/OnnxruntimeBuilder/releases/download/1.14.0/onnxruntime-1.14.0-android-shared.7z"
 
 log() {
   printf "[init] %s\n" "$*"
@@ -86,7 +61,6 @@ download_file() {
 clean_cache() {
   log "清理缓存目录"
   rm -rf \
-    "${ASSETS_DIR}" \
     "${SDK_NATIVE_DIR}" \
     "${ORT_DIR}" \
     "${TMP_DIR}" \
@@ -98,7 +72,7 @@ clean_cache() {
 }
 
 ensure_dirs() {
-  mkdir -p "${ASSETS_DIR}" "${SDK_NATIVE_DIR}" "${TMP_DIR}"
+  mkdir -p "${SDK_NATIVE_DIR}" "${TMP_DIR}"
 }
 
 setup_opencv() {
@@ -140,7 +114,7 @@ setup_opencv() {
 }
 
 setup_onnxruntime() {
-  local archive="${TMP_DIR}/onnxruntime-${ORT_VERSION}-android-shared.7z"
+  local archive="${TMP_DIR}/onnxruntime-android-shared.7z"
   local extract_dir="${TMP_DIR}/onnxruntime"
   rm -rf "${extract_dir}"
   mkdir -p "${extract_dir}"
@@ -193,155 +167,13 @@ sync_onnxruntime_jni_libs() {
   log "已同步 onnxruntime so 到 ${JNILIBS_DIR}"
 }
 
-collect_models() {
-  local assets="${ASSETS_DIR}"
-  local tmp_models_dir="${TMP_DIR}/models"
-  local from_dir=""
-
-  if [ -n "${MODEL_ARCHIVE}" ]; then
-    log "解压模型压缩包：${MODEL_ARCHIVE}"
-    rm -rf "${tmp_models_dir}"
-    mkdir -p "${tmp_models_dir}"
-    extract_7z "${MODEL_ARCHIVE}" "${tmp_models_dir}"
-    from_dir="${tmp_models_dir}"
-  elif [ -n "${MODEL_URL}" ]; then
-    log "下载模型压缩包..."
-    local archive="${TMP_DIR}/models.7z"
-    download_file "${MODEL_URL}" "${archive}"
-    rm -rf "${tmp_models_dir}"
-    mkdir -p "${tmp_models_dir}"
-    extract_7z "${archive}" "${tmp_models_dir}"
-    from_dir="${tmp_models_dir}"
-  elif [ -n "${MODEL_DIR}" ] && [ -d "${MODEL_DIR}" ]; then
-    from_dir="${MODEL_DIR}"
-  fi
-
-  if [ -z "${from_dir}" ]; then
-    local index_yaml="${TMP_DIR}/default_models.yaml"
-    log "直接从模型索引下载"
-    download_file "${MODEL_INDEX_URL}" "${index_yaml}"
-    download_required_models "${index_yaml}" "${assets}"
-    return 0
-  fi
-
-  local model_root="${from_dir}"
-  if [ -d "${from_dir}/OcrLibrary/src/main/assets" ]; then
-    model_root="${from_dir}/OcrLibrary/src/main/assets"
-  fi
-
-  log "复制模型到 ${assets}"
-  cp -a "${model_root}/." "${assets}/"
-}
-
-download_required_models() {
-  local index_yaml="$1"
-  local out_dir="$2"
-
-  download_model_as "${index_yaml}" "${CLS_SOURCE_NAME}" "${CLS_URL}" "${CLS_ASSET_NAME}" "${out_dir}"
-  download_model_as "${index_yaml}" "${DET_SOURCE_NAME}" "${DET_URL}" "${DET_ASSET_NAME}" "${out_dir}"
-  download_model_as "${index_yaml}" "${REC_SOURCE_NAME}" "${REC_URL}" "${REC_ASSET_NAME}" "${out_dir}"
-  download_model_as "${index_yaml}" "${KEYS_FILE}" "${KEYS_URL}" "${KEYS_FILE}" "${out_dir}"
-}
-
-download_model_as() {
-  local index_yaml="$1"
-  local source_name="$2"
-  local direct_url="$3"
-  local target_name="$4"
-  local out_dir="$5"
-
-  if [ -f "${out_dir}/${target_name}" ]; then
-    log "模型已存在，跳过下载：${target_name}"
-    return 0
-  fi
-
-  if [ -f "${out_dir}/${source_name}" ] && [ "${source_name}" != "${target_name}" ]; then
-    log "重命名模型：${source_name} -> ${target_name}"
-    mv "${out_dir}/${source_name}" "${out_dir}/${target_name}"
-    return 0
-  fi
-
-  local url=""
-  if [ -n "${direct_url}" ]; then
-    url="${direct_url}"
-  else
-    url="$(resolve_model_url_from_index "${index_yaml}" "${source_name}")"
-  fi
-
-  if [ -z "${url}" ]; then
-    log "模型索引未找到：${source_name}"
-    return 0
-  fi
-
-  if [ "${source_name}" = "${target_name}" ]; then
-    log "下载模型：${target_name}"
-    download_file "${url}" "${out_dir}/${target_name}"
-    return 0
-  fi
-
-  local tmp_file="${out_dir}/.${target_name}.download"
-  log "下载模型：${source_name} -> ${target_name}"
-  download_file "${url}" "${tmp_file}"
-  mv "${tmp_file}" "${out_dir}/${target_name}"
-}
-
-resolve_model_url_from_index() {
-  local yaml="$1"
-  local filename="$2"
-
-  local url
-  url="$(
-    awk -v f="${filename}" '
-      $1 == f ":" {found=1}
-      found && $1 == "model_dir:" {print $2; exit}
-    ' "${yaml}"
-  )"
-
-  printf "%s" "${url}"
-}
-
-verify_models() {
-  local assets="${ASSETS_DIR}"
-  local missing=0
-
-  if [ ! -f "${assets}/${CLS_ASSET_NAME}" ]; then
-    log "缺少 cls 模型：${CLS_ASSET_NAME}"
-    missing=1
-  fi
-
-  if [ ! -f "${assets}/${DET_ASSET_NAME}" ]; then
-    log "缺少 det 模型：${DET_ASSET_NAME}"
-    missing=1
-  fi
-
-  if [ ! -f "${assets}/${REC_ASSET_NAME}" ]; then
-    log "缺少 rec 模型：${REC_ASSET_NAME}"
-    missing=1
-  fi
-
-  if [ ! -f "${assets}/${KEYS_FILE}" ]; then
-    log "缺少 keys 文件：${KEYS_FILE}"
-    missing=1
-  fi
-
-  if [ "${missing}" -ne 0 ]; then
-    fail "模型不完整，无法继续"
-  fi
-}
-
 main() {
-  if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-    usage
-    exit 0
-  fi
   clean_cache
 
   ensure_dirs
   setup_opencv
   setup_onnxruntime
   sync_onnxruntime_jni_libs
-  collect_models
-  verify_models
 
   log "清理临时目录"
   rm -rf "${TMP_DIR}"
