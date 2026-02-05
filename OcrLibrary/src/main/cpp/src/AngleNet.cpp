@@ -16,6 +16,9 @@ AngleNet::~AngleNet() {
 void AngleNet::setNumThread(int numOfThread) {
     numThread = numOfThread;
     //===session options===
+    // Disable ORT arena/pattern reuse to reduce memory retention.
+    sessionOptions.DisableMemPattern();
+    sessionOptions.DisableCpuMemArena();
     // Sets the number of threads used to parallelize the execution within nodes
     // A value of 0 means ORT will pick a default
     sessionOptions.SetIntraOpNumThreads(numThread);
